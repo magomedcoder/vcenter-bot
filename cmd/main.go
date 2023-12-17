@@ -15,6 +15,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	internal.WriteTokenToFile("")
+
 	app := Initialize(conf)
 	app.Bot.Start()
 }

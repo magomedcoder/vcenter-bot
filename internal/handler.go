@@ -34,8 +34,8 @@ func (b *Bot) Start() {
 				var buttons []tgbotapi.InlineKeyboardButton
 				if item.PowerState == "POWERED_ON" {
 					buttons = append(buttons,
-						tgbotapi.NewInlineKeyboardButtonData("Выключить", "vmReboot:"+vm[1]),
-						tgbotapi.NewInlineKeyboardButtonData("Перезагрузить", "vmOff:"+vm[1]),
+						tgbotapi.NewInlineKeyboardButtonData("Выключить", "vmOff:"+vm[1]),
+						tgbotapi.NewInlineKeyboardButtonData("Перезагрузить", "vmReboot:"+vm[1]),
 					)
 				}
 				if item.PowerState == "POWERED_OFF" {
@@ -46,12 +46,16 @@ func (b *Bot) Start() {
 				b.BotAPI.Send(msg)
 				break
 			case "vmOn":
-				msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
-				b.BotAPI.Send(msg)
+				if b.VCenterApiCall.StartVM(vm[1]) {
+					msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
+					b.BotAPI.Send(msg)
+				}
 				break
 			case "vmOff":
-				msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
-				b.BotAPI.Send(msg)
+				if b.VCenterApiCall.StopVM(vm[1]) {
+					msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
+					b.BotAPI.Send(msg)
+				}
 				break
 			case "vmReboot":
 				msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))

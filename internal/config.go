@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"gopkg.in/yaml.v3"
+	"io/ioutil"
 	"os"
 )
 
@@ -29,4 +30,21 @@ func ReadConfig(filename string) (*Config, error) {
 	}
 
 	return conf, nil
+}
+
+const tokenFileName = "/tmp/vcenter-bot-token"
+
+func WriteTokenToFile(token string) {
+	err := ioutil.WriteFile(tokenFileName, []byte(token), 0644)
+	if err != nil {
+		fmt.Errorf("ошибка записи токена в файл: %v", err)
+	}
+}
+
+func readTokenFromFile() (string, error) {
+	data, err := ioutil.ReadFile(tokenFileName)
+	if err != nil {
+		return "", fmt.Errorf("ошибка чтения токена из файла: %v", err)
+	}
+	return string(data), nil
 }
