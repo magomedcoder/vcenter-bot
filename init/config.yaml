@@ -1,1 +1,6 @@
-telegram_token:
+telegram_token: ""
+
+vcenter:
+  host: ""
+  username: ""
+  password: ""

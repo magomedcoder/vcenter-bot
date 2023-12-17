@@ -6,8 +6,15 @@ import (
 	"os"
 )
 
+type vCenter struct {
+	Host     string `json:"host" yaml:"host"`
+	Username string `json:"username" yaml:"username"`
+	Password string `json:"password" yaml:"password"`
+}
+
 type Config struct {
-	TelegramToken string `json:"telegram_token" yaml:"telegram_token"`
+	TelegramToken string  `json:"telegram_token" yaml:"telegram_token"`
+	Vcenter       vCenter `json:"vcenter" yaml:"vcenter"`
 }
 
 func ReadConfig(filename string) (*Config, error) {

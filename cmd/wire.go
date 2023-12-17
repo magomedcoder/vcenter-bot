@@ -16,6 +16,7 @@ var providerSet = wire.NewSet(
 	wire.Struct(new(AppProvider), "*"),
 	internal.NewBotAPI,
 	internal.NewBotHandler,
+	internal.NewVmwareApiCallHandler,
 )
 
 func Initialize(conf *internal.Config) *AppProvider {
