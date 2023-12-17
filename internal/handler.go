@@ -9,7 +9,7 @@ func Start(bot *tgbotapi.BotAPI) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	updates := bot.GetUpdatesChan(u)
+	updates := b.BotAPI.GetUpdatesChan(u)
 	for update := range updates {
 		if update.Message != nil {
 			userId := update.FromChat().ID
