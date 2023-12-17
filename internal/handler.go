@@ -23,8 +23,27 @@ func (b *Bot) Start() {
 		}
 		if update.Message.IsCommand() {
 			switch update.Message.Command() {
-			case "login":
-				b.VCenterApiCall.session()
+			case "vm":
+				items, err := b.VCenterApiCall.getListVM()
+				if err != nil {
+					continue
+				}
+				if items != nil {
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
+
+					var keyboard [][]tgbotapi.InlineKeyboardButton
+					for _, item := range items {
+						keyboard = append(keyboard, tgbotapi.NewInlineKeyboardRow(
+							tgbotapi.NewInlineKeyboardButtonData(item.Name, item.Name),
+						))
+					}
+
+					msg.ReplyMarkup = tgbotapi.InlineKeyboardMarkup{
+						InlineKeyboard: keyboard,
+					}
+
+					b.BotAPI.Send(msg)
+				}
 			}
 		}
 

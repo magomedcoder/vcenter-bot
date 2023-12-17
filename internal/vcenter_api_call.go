@@ -58,3 +58,45 @@ func (v *VCenterApiCall) session() {
 
 	fmt.Println(session.Value)
 }
+
+type List struct {
+	Name string
+}
+
+func (v *VCenterApiCall) getListVM() ([]*List, error) {
+	req, err := http.NewRequest("GET", v.Conf.Vcenter.Host+"/rest/vcenter/vm", nil)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	res, err := client(req)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode == 401 {
+		return nil, err
+	}
+
+	var value *struct {
+		Value []*struct {
+			Name string
+		} `json:"value"`
+	}
+
+	if err = json.NewDecoder(res.Body).Decode(&value); err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	items := make([]*List, 0)
+	for _, item := range value.Value {
+		items = append(items, &List{Name: item.Name})
+	}
+
+	return items, nil
+}
