@@ -1,5 +1,7 @@
 telegram_token: ""
 
+users: []
+
 vcenter:
   host: ""
   username: ""

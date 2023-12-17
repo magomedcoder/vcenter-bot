@@ -3,16 +3,18 @@ package internal
 import (
 	"fmt"
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"slices"
 	"strings"
 )
 
 type Bot struct {
+	Conf           *Config
 	BotAPI         *tgbotapi.BotAPI
 	VCenterApiCall *VCenterApiCall
 }
 
-func NewBotHandler(botAPI *tgbotapi.BotAPI, vcenterApiCall *VCenterApiCall) *Bot {
-	return &Bot{BotAPI: botAPI, VCenterApiCall: vcenterApiCall}
+func NewBotHandler(conf *Config, botAPI *tgbotapi.BotAPI, vcenterApiCall *VCenterApiCall) *Bot {
+	return &Bot{Conf: conf, BotAPI: botAPI, VCenterApiCall: vcenterApiCall}
 }
 
 func (b *Bot) Start() {
@@ -20,6 +22,12 @@ func (b *Bot) Start() {
 	u.Timeout = 60
 	updates := b.BotAPI.GetUpdatesChan(u)
 	for update := range updates {
+		userId := update.FromChat().ID
+		if slices.Contains(b.Conf.Users, userId) == false {
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("userId %d ", userId))
+			b.BotAPI.Send(msg)
+			continue
+		}
 		if update.CallbackQuery != nil {
 			data := update.CallbackQuery
 			chatID := data.Message.Chat.ID
@@ -58,14 +66,18 @@ func (b *Bot) Start() {
 				}
 				break
 			case "vmReboot":
-				msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
-				b.BotAPI.Send(msg)
+				if b.VCenterApiCall.RebootVM(vm[1]) {
+					msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
+					b.BotAPI.Send(msg)
+				}
 				break
 			}
 		}
+
 		if update.Message == nil {
 			continue
 		}
+
 		if update.Message.IsCommand() {
 			switch update.Message.Command() {
 			case "vm":

@@ -15,6 +15,7 @@ type vCenter struct {
 
 type Config struct {
 	TelegramToken string  `json:"telegram_token" yaml:"telegram_token"`
+	Users         []int64 `json:"users" yaml:"users"`
 	Vcenter       vCenter `json:"vcenter" yaml:"vcenter"`
 }
 

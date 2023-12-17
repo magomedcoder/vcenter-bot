@@ -228,3 +228,36 @@ func (v *VCenterApiCall) StopVM(vm string) bool {
 
 	return true
 }
+
+func (v *VCenterApiCall) RebootVM(vm string) bool {
+	req, err := http.NewRequest("POST", v.Conf.Vcenter.Host+"/rest/vcenter/vm/"+vm+"/power/reset", nil)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	readToken, err := readTokenFromFile()
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	req.Header.Add("vmware-api-session-id", readToken)
+	res, err := client(req)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode == 401 {
+		fmt.Println(err)
+		if v.session() {
+			return v.StopVM(vm)
+		}
+		return false
+	}
+
+	return true
+}

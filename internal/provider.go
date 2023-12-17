@@ -11,6 +11,6 @@ func NewBotAPI(conf *Config) *tgbotapi.BotAPI {
 		log.Panic(err)
 	}
 
-	bot.Debug = true
+	bot.Debug = false
 	return bot
 }

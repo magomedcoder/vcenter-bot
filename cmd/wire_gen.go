@@ -16,7 +16,7 @@ import (
 func Initialize(conf *internal.Config) *AppProvider {
 	botAPI := internal.NewBotAPI(conf)
 	vCenterApiCall := internal.NewVmwareApiCallHandler(conf)
-	bot := internal.NewBotHandler(botAPI, vCenterApiCall)
+	bot := internal.NewBotHandler(conf, botAPI, vCenterApiCall)
 	appProvider := &AppProvider{
 		Bot: bot,
 	}
