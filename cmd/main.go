@@ -12,10 +12,8 @@ func main() {
 
 	conf, err := internal.ReadConfig(*env)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
-
-	internal.WriteTokenToFile("")
 
 	app := Initialize(conf)
 	app.Bot.Start()

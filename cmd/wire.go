@@ -15,6 +15,7 @@ type AppProvider struct {
 var providerSet = wire.NewSet(
 	wire.Struct(new(AppProvider), "*"),
 	internal.NewBotAPI,
+	internal.NewDatabase,
 	internal.NewBotHandler,
 	internal.NewVmwareApiCallHandler,
 )

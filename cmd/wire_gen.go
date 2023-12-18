@@ -15,8 +15,9 @@ import (
 
 func Initialize(conf *internal.Config) *AppProvider {
 	botAPI := internal.NewBotAPI(conf)
-	vCenterApiCall := internal.NewVmwareApiCallHandler(conf)
-	bot := internal.NewBotHandler(conf, botAPI, vCenterApiCall)
+	db := internal.NewDatabase()
+	vCenterApiCall := internal.NewVmwareApiCallHandler(conf, db)
+	bot := internal.NewBotHandler(conf, botAPI, vCenterApiCall, db)
 	appProvider := &AppProvider{
 		Bot: bot,
 	}
@@ -29,4 +30,4 @@ type AppProvider struct {
 	Bot *internal.Bot
 }
 
-var providerSet = wire.NewSet(wire.Struct(new(AppProvider), "*"), internal.NewBotAPI, internal.NewBotHandler, internal.NewVmwareApiCallHandler)
+var providerSet = wire.NewSet(wire.Struct(new(AppProvider), "*"), internal.NewBotAPI, internal.NewDatabase, internal.NewBotHandler, internal.NewVmwareApiCallHandler)

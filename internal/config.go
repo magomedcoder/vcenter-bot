@@ -3,20 +3,12 @@ package internal
 import (
 	"fmt"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
 	"os"
 )
 
-type vCenter struct {
-	Host     string `json:"host" yaml:"host"`
-	Username string `json:"username" yaml:"username"`
-	Password string `json:"password" yaml:"password"`
-}
-
 type Config struct {
-	TelegramToken string  `json:"telegram_token" yaml:"telegram_token"`
-	Users         []int64 `json:"users" yaml:"users"`
-	Vcenter       vCenter `json:"vcenter" yaml:"vcenter"`
+	TelegramToken string `json:"telegram_token" yaml:"telegram_token"`
+	VcenterHost   string `json:"vcenter_host" yaml:"vcenter_host"`
 }
 
 func ReadConfig(filename string) (*Config, error) {
@@ -31,21 +23,4 @@ func ReadConfig(filename string) (*Config, error) {
 	}
 
 	return conf, nil
-}
-
-const tokenFileName = "/tmp/vcenter-bot-token"
-
-func WriteTokenToFile(token string) {
-	err := ioutil.WriteFile(tokenFileName, []byte(token), 0644)
-	if err != nil {
-		fmt.Errorf("ошибка записи токена в файл: %v", err)
-	}
-}
-
-func readTokenFromFile() (string, error) {
-	data, err := ioutil.ReadFile(tokenFileName)
-	if err != nil {
-		return "", fmt.Errorf("ошибка чтения токена из файла: %v", err)
-	}
-	return string(data), nil
 }

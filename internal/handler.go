@@ -1,9 +1,11 @@
 package internal
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"slices"
+	"log"
+	"regexp"
 	"strings"
 )
 
@@ -11,10 +13,91 @@ type Bot struct {
 	Conf           *Config
 	BotAPI         *tgbotapi.BotAPI
 	VCenterApiCall *VCenterApiCall
+	Db             *sql.DB
 }
 
-func NewBotHandler(conf *Config, botAPI *tgbotapi.BotAPI, vcenterApiCall *VCenterApiCall) *Bot {
-	return &Bot{Conf: conf, BotAPI: botAPI, VCenterApiCall: vcenterApiCall}
+func NewBotHandler(conf *Config, botAPI *tgbotapi.BotAPI, vcenterApiCall *VCenterApiCall, db *sql.DB) *Bot {
+	return &Bot{Conf: conf, BotAPI: botAPI, VCenterApiCall: vcenterApiCall, Db: db}
+}
+
+func parseLoginPassword(input string) []string {
+	// Используем регулярное выражение для извлечения логина и пароля
+	re := regexp.MustCompile(`"([^"]+)":"([^"]+)"`)
+	matches := re.FindStringSubmatch(input)
+
+	if len(matches) != 3 {
+		return nil
+	}
+
+	return matches
+}
+
+func (b *Bot) CallbackQuery(userId int64, data *tgbotapi.CallbackQuery) {
+	chatID := data.Message.Chat.ID
+	messageID := data.Message.MessageID
+	vm := strings.Split(data.Data, ":")
+	item, err := b.VCenterApiCall.getVM(userId, vm[1])
+	if err != nil {
+		return
+	}
+	switch vm[0] {
+	case "vm":
+		var buttons []tgbotapi.InlineKeyboardButton
+		if item.PowerState == "POWERED_ON" {
+			buttons = append(buttons,
+				tgbotapi.NewInlineKeyboardButtonData("Выключить", "vmOff:"+vm[1]),
+				tgbotapi.NewInlineKeyboardButtonData("Перезагрузить", "vmReboot:"+vm[1]),
+			)
+		}
+		if item.PowerState == "POWERED_OFF" {
+			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData("Включить", "vmOn:"+vm[1]))
+		}
+		msg := tgbotapi.NewMessage(data.From.ID, fmt.Sprintf("%s", item.Name))
+		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
+		b.BotAPI.Send(msg)
+		break
+	case "vmOn":
+		if b.VCenterApiCall.StartVM(userId, vm[1]) {
+			msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
+			b.BotAPI.Send(msg)
+		}
+		break
+	case "vmOff":
+		if b.VCenterApiCall.StopVM(userId, vm[1]) {
+			msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
+			b.BotAPI.Send(msg)
+		}
+		break
+	case "vmReboot":
+		if b.VCenterApiCall.RebootVM(userId, vm[1]) {
+			msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
+			b.BotAPI.Send(msg)
+		}
+		break
+	}
+}
+
+func (b *Bot) Command(userId int64, message *tgbotapi.Message) {
+	switch message.Command() {
+	case "vm":
+		items, err := b.VCenterApiCall.getListVM(userId)
+		if err != nil {
+			return
+		}
+		if items != nil {
+			msg := tgbotapi.NewMessage(message.Chat.ID, message.Text)
+			var keyboard [][]tgbotapi.InlineKeyboardButton
+			for _, item := range items {
+				keyboard = append(keyboard, tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(item.Name, "vm:"+item.Id),
+				))
+			}
+			msg.ReplyMarkup = tgbotapi.InlineKeyboardMarkup{
+				InlineKeyboard: keyboard,
+			}
+			b.BotAPI.Send(msg)
+		}
+	}
 }
 
 func (b *Bot) Start() {
@@ -23,55 +106,23 @@ func (b *Bot) Start() {
 	updates := b.BotAPI.GetUpdatesChan(u)
 	for update := range updates {
 		userId := update.FromChat().ID
-		if slices.Contains(b.Conf.Users, userId) == false {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("userId %d ", userId))
-			b.BotAPI.Send(msg)
-			continue
-		}
-		if update.CallbackQuery != nil {
-			data := update.CallbackQuery
-			chatID := data.Message.Chat.ID
-			messageID := data.Message.MessageID
-			vm := strings.Split(data.Data, ":")
-			item, err := b.VCenterApiCall.getVM(vm[1])
+
+		login := parseLoginPassword(update.Message.Text)
+
+		if login != nil && login[1] != "" && login[2] != "" {
+			_, err := b.Db.Exec("DELETE FROM users WHERE user_id = ?", userId)
 			if err != nil {
-				continue
+				log.Println(err)
 			}
-			switch vm[0] {
-			case "vm":
-				var buttons []tgbotapi.InlineKeyboardButton
-				if item.PowerState == "POWERED_ON" {
-					buttons = append(buttons,
-						tgbotapi.NewInlineKeyboardButtonData("Выключить", "vmOff:"+vm[1]),
-						tgbotapi.NewInlineKeyboardButtonData("Перезагрузить", "vmReboot:"+vm[1]),
-					)
-				}
-				if item.PowerState == "POWERED_OFF" {
-					buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData("Включить", "vmOn:"+vm[1]))
-				}
-				msg := tgbotapi.NewMessage(data.From.ID, fmt.Sprintf("%s", item.Name))
-				msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
-				b.BotAPI.Send(msg)
-				break
-			case "vmOn":
-				if b.VCenterApiCall.StartVM(vm[1]) {
-					msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
-					b.BotAPI.Send(msg)
-				}
-				break
-			case "vmOff":
-				if b.VCenterApiCall.StopVM(vm[1]) {
-					msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
-					b.BotAPI.Send(msg)
-				}
-				break
-			case "vmReboot":
-				if b.VCenterApiCall.RebootVM(vm[1]) {
-					msg := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("%s\n", item.Name))
-					b.BotAPI.Send(msg)
-				}
-				break
+
+			_, _err := b.Db.Exec("INSERT INTO users (user_id, username, password) VALUES (?, ?, ?)", userId, login[1], login[2])
+			if _err != nil {
+				log.Println(err)
 			}
+		}
+
+		if update.CallbackQuery != nil {
+			b.CallbackQuery(userId, update.CallbackQuery)
 		}
 
 		if update.Message == nil {
@@ -79,26 +130,7 @@ func (b *Bot) Start() {
 		}
 
 		if update.Message.IsCommand() {
-			switch update.Message.Command() {
-			case "vm":
-				items, err := b.VCenterApiCall.getListVM()
-				if err != nil {
-					continue
-				}
-				if items != nil {
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-					var keyboard [][]tgbotapi.InlineKeyboardButton
-					for _, item := range items {
-						keyboard = append(keyboard, tgbotapi.NewInlineKeyboardRow(
-							tgbotapi.NewInlineKeyboardButtonData(item.Name, "vm:"+item.Id),
-						))
-					}
-					msg.ReplyMarkup = tgbotapi.InlineKeyboardMarkup{
-						InlineKeyboard: keyboard,
-					}
-					b.BotAPI.Send(msg)
-				}
-			}
+			b.Command(userId, update.Message)
 		}
 	}
 }
