@@ -135,6 +135,8 @@ func (v *VCenterApiCall) getListVM(userId int64) ([]*List, error) {
 
 type VM struct {
 	Name       string `json:"name"`
+	Cpu        int    `json:"cpu"`
+	Ram        int    `json:"memory"`
 	PowerState string `json:"power_state"`
 }
 
@@ -171,14 +173,29 @@ func (v *VCenterApiCall) getVM(userId int64, vm string) (*VM, error) {
 	}
 
 	var value *struct {
-		Value *VM `json:"value"`
+		Value *struct {
+			Name string `json:"name"`
+			Cpu  struct {
+				Count int `json:"count"`
+			} `json:"cpu"`
+			Memory struct {
+				SizeMiB int `json:"size_MiB"`
+			} `json:"memory"`
+			PowerState string `json:"power_state"`
+		} `json:"value"`
 	}
+
 	if err = json.NewDecoder(res.Body).Decode(&value); err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
 
-	return &VM{Name: value.Value.Name, PowerState: value.Value.PowerState}, nil
+	return &VM{
+		Name:       value.Value.Name,
+		Cpu:        value.Value.Cpu.Count,
+		Ram:        value.Value.Memory.SizeMiB,
+		PowerState: value.Value.PowerState,
+	}, nil
 }
 
 func (v *VCenterApiCall) StartVM(userId int64, vm string) bool {

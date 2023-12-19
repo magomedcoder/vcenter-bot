@@ -40,6 +40,7 @@ func (b *Bot) CallbackQuery(userId int64, data *tgbotapi.CallbackQuery) {
 	if err != nil {
 		return
 	}
+	infoVM := fmt.Sprintf("VM: *%s*\n - CPU: *%d*\n - RAM: *%d*\n", item.Name, item.Cpu, item.Ram)
 	switch vm[0] {
 	case "vm":
 		var buttons []tgbotapi.InlineKeyboardButton
@@ -52,7 +53,8 @@ func (b *Bot) CallbackQuery(userId int64, data *tgbotapi.CallbackQuery) {
 		if item.PowerState == "POWERED_OFF" {
 			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData("Включить", "vmOn:"+vm[1]))
 		}
-		msg := tgbotapi.NewMessage(data.From.ID, fmt.Sprintf("%s", item.Name))
+		msg := tgbotapi.NewMessage(data.From.ID, infoVM)
+		msg.ParseMode = tgbotapi.ModeMarkdown
 		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
 		b.BotAPI.Send(msg)
 		break
@@ -97,8 +99,22 @@ func (b *Bot) Command(userId int64, message *tgbotapi.Message) {
 			}
 			b.BotAPI.Send(msg)
 		}
+		break
+	case "logout":
+		_, err := b.Db.Exec("DELETE FROM users WHERE user_id = ?", userId)
+		if err != nil {
+			log.Println(err)
+		}
+		break
 	}
 }
+
+var numericKeyboard = tgbotapi.NewReplyKeyboard(
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("/vm"),
+		tgbotapi.NewKeyboardButton("/logout"),
+	),
+)
 
 func (b *Bot) Start() {
 	u := tgbotapi.NewUpdate(0)
@@ -107,30 +123,68 @@ func (b *Bot) Start() {
 	for update := range updates {
 		userId := update.FromChat().ID
 
-		login := parseLoginPassword(update.Message.Text)
+		if update.Message != nil {
+			login := parseLoginPassword(update.Message.Text)
+			if login != nil {
+				_, err := b.Db.Exec("DELETE FROM users WHERE user_id = ?", userId)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
 
-		if login != nil && login[1] != "" && login[2] != "" {
-			_, err := b.Db.Exec("DELETE FROM users WHERE user_id = ?", userId)
-			if err != nil {
-				log.Println(err)
+				_, _err := b.Db.Exec("INSERT INTO users (user_id, username, password) VALUES (?, ?, ?)", userId, login[1], login[2])
+				if _err != nil {
+					log.Println(err)
+					continue
+				}
+				if b.VCenterApiCall.session(userId) == false {
+					_, err := b.Db.Exec("DELETE FROM users WHERE user_id = ?", userId)
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+					msg := tgbotapi.NewMessage(userId, "Ошибка авторизации.")
+					msg.ReplyMarkup = numericKeyboard
+					b.BotAPI.Send(msg)
+
+					continue
+				}
+				msg := tgbotapi.NewMessage(userId, "Добро пожаловать.")
+				msg.ReplyMarkup = numericKeyboard
+				b.BotAPI.Send(msg)
+			} else {
+
+				var sessionId string
+				err := b.Db.QueryRow("SELECT user_id FROM users WHERE user_id = ?", userId).Scan(&sessionId)
+				if err != nil {
+
+				}
+
+				if sessionId == "" {
+					msg := tgbotapi.NewMessage(userId, "Для входа в систему введите ваш логин и пароль в следующем формате:\n *\"логин\":\"пароль\"*")
+					msg.ReplyMarkup = numericKeyboard
+					msg.ParseMode = tgbotapi.ModeMarkdown
+					b.BotAPI.Send(msg)
+					continue
+				}
 			}
 
-			_, _err := b.Db.Exec("INSERT INTO users (user_id, username, password) VALUES (?, ?, ?)", userId, login[1], login[2])
-			if _err != nil {
-				log.Println(err)
-			}
-		}
+			if update.Message.IsCommand() {
 
-		if update.CallbackQuery != nil {
+				msg := tgbotapi.NewMessage(userId, "Пожалуйста, подождите.")
+				msg.ReplyMarkup = numericKeyboard
+				b.BotAPI.Send(msg)
+
+				b.Command(userId, update.Message)
+			}
+
+		} else if update.CallbackQuery != nil {
+
+			msg := tgbotapi.NewMessage(userId, "Пожалуйста, подождите.")
+			msg.ReplyMarkup = numericKeyboard
+			b.BotAPI.Send(msg)
+
 			b.CallbackQuery(userId, update.CallbackQuery)
-		}
-
-		if update.Message == nil {
-			continue
-		}
-
-		if update.Message.IsCommand() {
-			b.Command(userId, update.Message)
 		}
 	}
 }
