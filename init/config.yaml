@@ -1,3 +1,5 @@
 telegram_token: ""
 
-vcenter_host: ""
+vcenter:
+  host: ""
+  username_postfix: ""

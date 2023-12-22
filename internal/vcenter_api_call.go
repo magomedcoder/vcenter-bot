@@ -39,7 +39,7 @@ type Session struct {
 }
 
 func (v *VCenterApiCall) session(userId int64) bool {
-	req, err := http.NewRequest("POST", v.Conf.VcenterHost+"/rest/com/vmware/cis/session", nil)
+	req, err := http.NewRequest("POST", v.Conf.VCenter.Host+"/rest/com/vmware/cis/session", nil)
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -84,7 +84,7 @@ type List struct {
 }
 
 func (v *VCenterApiCall) getListVM(userId int64) ([]*List, error) {
-	req, err := http.NewRequest("GET", v.Conf.VcenterHost+"/rest/vcenter/vm", nil)
+	req, err := http.NewRequest("GET", v.Conf.VCenter.Host+"/rest/vcenter/vm", nil)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -141,7 +141,7 @@ type VM struct {
 }
 
 func (v *VCenterApiCall) getVM(userId int64, vm string) (*VM, error) {
-	req, err := http.NewRequest("GET", v.Conf.VcenterHost+"/rest/vcenter/vm/"+vm, nil)
+	req, err := http.NewRequest("GET", v.Conf.VCenter.Host+"/rest/vcenter/vm/"+vm, nil)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -199,7 +199,7 @@ func (v *VCenterApiCall) getVM(userId int64, vm string) (*VM, error) {
 }
 
 func (v *VCenterApiCall) StartVM(userId int64, vm string) bool {
-	req, err := http.NewRequest("POST", v.Conf.VcenterHost+"/rest/vcenter/vm/"+vm+"/power/start", nil)
+	req, err := http.NewRequest("POST", v.Conf.VCenter.Host+"/rest/vcenter/vm/"+vm+"/power/start", nil)
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -234,7 +234,7 @@ func (v *VCenterApiCall) StartVM(userId int64, vm string) bool {
 }
 
 func (v *VCenterApiCall) StopVM(userId int64, vm string) bool {
-	req, err := http.NewRequest("POST", v.Conf.VcenterHost+"/rest/vcenter/vm/"+vm+"/power/stop", nil)
+	req, err := http.NewRequest("POST", v.Conf.VCenter.Host+"/rest/vcenter/vm/"+vm+"/power/stop", nil)
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -269,7 +269,7 @@ func (v *VCenterApiCall) StopVM(userId int64, vm string) bool {
 }
 
 func (v *VCenterApiCall) RebootVM(userId int64, vm string) bool {
-	req, err := http.NewRequest("POST", v.Conf.VcenterHost+"/rest/vcenter/vm/"+vm+"/power/reset", nil)
+	req, err := http.NewRequest("POST", v.Conf.VCenter.Host+"/rest/vcenter/vm/"+vm+"/power/reset", nil)
 	if err != nil {
 		fmt.Println(err)
 		return false

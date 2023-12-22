@@ -132,7 +132,10 @@ func (b *Bot) Start() {
 					continue
 				}
 
-				_, _err := b.Db.Exec("INSERT INTO users (user_id, username, password) VALUES (?, ?, ?)", userId, login[1], login[2])
+				username := login[1] + b.Conf.VCenter.UsernamePostfix
+				password := login[2]
+
+				_, _err := b.Db.Exec("INSERT INTO users (user_id, username, password) VALUES (?, ?, ?)", userId, username, password)
 				if _err != nil {
 					log.Println(err)
 					continue
@@ -149,6 +152,9 @@ func (b *Bot) Start() {
 
 					continue
 				}
+
+				b.BotAPI.Send(tgbotapi.NewDeleteMessage(userId, update.Message.MessageID))
+
 				msg := tgbotapi.NewMessage(userId, "Добро пожаловать.")
 				msg.ReplyMarkup = numericKeyboard
 				b.BotAPI.Send(msg)
