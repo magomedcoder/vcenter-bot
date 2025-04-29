@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
-	"fmt"
+	"io"
 	"log"
 	"net/http"
 )
@@ -28,7 +28,7 @@ func client(req *http.Request) (*http.Response, error) {
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Panicf("client-%s", err)
 	}
 
 	return res, err
@@ -41,7 +41,7 @@ type Session struct {
 func (v *VCenterApiCall) session(userId int64) bool {
 	req, err := http.NewRequest("POST", v.Conf.VCenter.Host+"/rest/com/vmware/cis/session", nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("session-NewRequest-%s", err)
 		return false
 	}
 
@@ -49,27 +49,31 @@ func (v *VCenterApiCall) session(userId int64) bool {
 	var password string
 	err = v.Db.QueryRow("SELECT username, password FROM users WHERE user_id = ?", userId).Scan(&username, &password)
 	if err != nil {
-		log.Println(err)
+		log.Printf("session-QueryRow-users-%s", err)
 	}
 
 	req.SetBasicAuth(username, password)
 	res, err := client(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("session-client-%s", err)
 		return false
 	}
 
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			log.Printf("session-client-%s", err)
+		}
+	}(res.Body)
 
 	var session *Session
 	if err = json.NewDecoder(res.Body).Decode(&session); err != nil {
-		fmt.Println(err)
+		log.Printf("session-Decode-%s", err)
 	}
 
 	if res.StatusCode == 200 {
 		_, _err := v.Db.Exec("UPDATE users SET session_id = ? WHERE user_id = ?", session.Value, userId)
 		if _err != nil {
-			log.Println(err)
+			log.Printf("update-users-session_id-%s", err)
 			return false
 		}
 		return true
@@ -86,28 +90,32 @@ type List struct {
 func (v *VCenterApiCall) getListVM(userId int64) ([]*List, error) {
 	req, err := http.NewRequest("GET", v.Conf.VCenter.Host+"/rest/vcenter/vm", nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("getListVM-%s", err)
 		return nil, err
 	}
 
 	var sessionId string
 	err = v.Db.QueryRow("SELECT session_id FROM users WHERE user_id = ?", userId).Scan(&sessionId)
 	if err != nil {
-		log.Println(err)
+		log.Printf("getListVM-users-%s", err)
 	}
 
 	req.Header.Add("vmware-api-session-id", sessionId)
 
 	res, err := client(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("getListVM-client-%s", err)
 		return nil, err
 	}
 
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			log.Printf("getListVM-Close-%s", err)
+		}
+	}(res.Body)
 
 	if res.StatusCode == 401 {
-		fmt.Println(err)
+		log.Printf("StatusCode == 401-%s", err)
 		if v.session(userId) {
 			return v.getListVM(userId)
 		}
@@ -121,7 +129,7 @@ func (v *VCenterApiCall) getListVM(userId int64) ([]*List, error) {
 		} `json:"value"`
 	}
 	if err = json.NewDecoder(res.Body).Decode(&value); err != nil {
-		fmt.Println(err)
+		log.Printf("getListVM-NewDecoder-%s", err)
 		return nil, err
 	}
 
@@ -143,14 +151,14 @@ type VM struct {
 func (v *VCenterApiCall) getVM(userId int64, vm string) (*VM, error) {
 	req, err := http.NewRequest("GET", v.Conf.VCenter.Host+"/rest/vcenter/vm/"+vm, nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("getVM-NewRequest-%s", err)
 		return nil, err
 	}
 
 	var sessionId string
 	err = v.Db.QueryRow("SELECT session_id FROM users WHERE user_id = ?", userId).Scan(&sessionId)
 	if err != nil {
-		log.Println(err)
+		log.Printf("getVM-users-user_id-%s", err)
 		return nil, err
 	}
 
@@ -158,14 +166,18 @@ func (v *VCenterApiCall) getVM(userId int64, vm string) (*VM, error) {
 
 	res, err := client(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("getVM-client-%s", err)
 		return nil, err
 	}
 
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			log.Printf("getVM-Close-%s", err)
+		}
+	}(res.Body)
 
 	if res.StatusCode == 401 {
-		fmt.Println(err)
+		log.Printf("getVM-StatusCode == 401-%s", err)
 		if v.session(userId) {
 			return v.getVM(userId, vm)
 		}
@@ -186,7 +198,7 @@ func (v *VCenterApiCall) getVM(userId int64, vm string) (*VM, error) {
 	}
 
 	if err = json.NewDecoder(res.Body).Decode(&value); err != nil {
-		fmt.Println(err)
+		log.Printf("getVM-NewDecoder-%s", err)
 		return nil, err
 	}
 
@@ -201,14 +213,14 @@ func (v *VCenterApiCall) getVM(userId int64, vm string) (*VM, error) {
 func (v *VCenterApiCall) StartVM(userId int64, vm string) bool {
 	req, err := http.NewRequest("POST", v.Conf.VCenter.Host+"/rest/vcenter/vm/"+vm+"/power/start", nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("StartVM-NewRequest-%s", err)
 		return false
 	}
 
 	var sessionId string
 	err = v.Db.QueryRow("SELECT session_id FROM users WHERE user_id = ?", userId).Scan(&sessionId)
 	if err != nil {
-		log.Println(err)
+		log.Printf("StartVM-users-user_id-%s", err)
 		return false
 	}
 
@@ -216,14 +228,18 @@ func (v *VCenterApiCall) StartVM(userId int64, vm string) bool {
 
 	res, err := client(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("StartVM-client-%s", err)
 		return false
 	}
 
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			log.Printf("StartVM-Close-%s", err)
+		}
+	}(res.Body)
 
 	if res.StatusCode == 401 {
-		fmt.Println(err)
+		log.Printf("StopVM-StatusCode == 401-%s", err)
 		if v.session(userId) {
 			return v.StartVM(userId, vm)
 		}
@@ -236,14 +252,14 @@ func (v *VCenterApiCall) StartVM(userId int64, vm string) bool {
 func (v *VCenterApiCall) StopVM(userId int64, vm string) bool {
 	req, err := http.NewRequest("POST", v.Conf.VCenter.Host+"/rest/vcenter/vm/"+vm+"/power/stop", nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("StopVM-NewRequest-%s", err)
 		return false
 	}
 
 	var sessionId string
 	err = v.Db.QueryRow("SELECT session_id FROM users WHERE user_id = ?", userId).Scan(&sessionId)
 	if err != nil {
-		log.Println(err)
+		log.Printf("StopVM-QueryRow-user_id-%s", err)
 		return false
 	}
 
@@ -251,14 +267,18 @@ func (v *VCenterApiCall) StopVM(userId int64, vm string) bool {
 
 	res, err := client(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("StopVM-client-%s", err)
 		return false
 	}
 
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			log.Printf("StopVM-Close-%s", err)
+		}
+	}(res.Body)
 
 	if res.StatusCode == 401 {
-		fmt.Println(err)
+		log.Printf("StopVM-StatusCode == 401-%s", err)
 		if v.session(userId) {
 			return v.StopVM(userId, vm)
 		}
@@ -271,14 +291,14 @@ func (v *VCenterApiCall) StopVM(userId int64, vm string) bool {
 func (v *VCenterApiCall) RebootVM(userId int64, vm string) bool {
 	req, err := http.NewRequest("POST", v.Conf.VCenter.Host+"/rest/vcenter/vm/"+vm+"/power/reset", nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("RebootVM-NewRequest-%s", err)
 		return false
 	}
 
 	var sessionId string
 	err = v.Db.QueryRow("SELECT session_id FROM users WHERE user_id = ?", userId).Scan(&sessionId)
 	if err != nil {
-		log.Println(err)
+		log.Printf("RebootVM-QueryRow-users-user_id-%s", err)
 		return false
 	}
 
@@ -286,14 +306,18 @@ func (v *VCenterApiCall) RebootVM(userId int64, vm string) bool {
 
 	res, err := client(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("RebootVM-client-%s", err)
 		return false
 	}
 
-	defer res.Body.Close()
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			log.Printf("RebootVM-Close-%s", err)
+		}
+	}(res.Body)
 
 	if res.StatusCode == 401 {
-		fmt.Println(err)
+		log.Printf("RebootVM-StatusCode == 401-%s", err)
 		if v.session(userId) {
 			return v.StopVM(userId, vm)
 		}

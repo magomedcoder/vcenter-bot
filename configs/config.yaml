@@ -1,0 +1,11 @@
+telegram:
+  token: ""
+#  proxy_socks5: ""
+#    host: ""
+#    port: ""
+#    username: ""
+#    password: ""
+
+vcenter:
+  host: ""
+  username_postfix: ""

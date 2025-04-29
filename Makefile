@@ -1,6 +1,6 @@
 .PHONY: run
 run:
-	go run ./cmd -c=./build/config.yaml
+	go run ./cmd -c=./configs/config.yaml
 
 .PHONY: build
 build:

@@ -97,13 +97,17 @@ func (b *Bot) Command(userId int64, message *tgbotapi.Message) {
 			msg.ReplyMarkup = tgbotapi.InlineKeyboardMarkup{
 				InlineKeyboard: keyboard,
 			}
-			b.BotAPI.Send(msg)
+			_, err := b.BotAPI.Send(msg)
+			if err != nil {
+				log.Printf("Command-%s", err)
+				return
+			}
 		}
 		break
 	case "logout":
 		_, err := b.Db.Exec("DELETE FROM users WHERE user_id = ?", userId)
 		if err != nil {
-			log.Println(err)
+			log.Printf("Command-logout-%s", err)
 		}
 		break
 	}
@@ -128,7 +132,7 @@ func (b *Bot) Start() {
 			if login != nil {
 				_, err := b.Db.Exec("DELETE FROM users WHERE user_id = ?", userId)
 				if err != nil {
-					log.Println(err)
+					log.Printf("Start-users-user_id-%s", err)
 					continue
 				}
 
@@ -137,27 +141,36 @@ func (b *Bot) Start() {
 
 				_, _err := b.Db.Exec("INSERT INTO users (user_id, username, password) VALUES (?, ?, ?)", userId, username, password)
 				if _err != nil {
-					log.Println(err)
+					log.Printf("Start-users-INSERT-%s", err)
 					continue
 				}
 				if b.VCenterApiCall.session(userId) == false {
 					_, err := b.Db.Exec("DELETE FROM users WHERE user_id = ?", userId)
 					if err != nil {
-						log.Println(err)
+						log.Printf("Start-users-DELETE-%s", err)
 						continue
 					}
 					msg := tgbotapi.NewMessage(userId, "Ошибка авторизации.")
 					msg.ReplyMarkup = numericKeyboard
-					b.BotAPI.Send(msg)
+					if _, err := b.BotAPI.Send(msg); err != nil {
+						log.Printf("Start-%s", err)
+						return
+					}
 
 					continue
 				}
 
-				b.BotAPI.Send(tgbotapi.NewDeleteMessage(userId, update.Message.MessageID))
+				if _, err := b.BotAPI.Send(tgbotapi.NewDeleteMessage(userId, update.Message.MessageID)); err != nil {
+					log.Printf("Start-%s", err)
+					return
+				}
 
 				msg := tgbotapi.NewMessage(userId, "Добро пожаловать.")
 				msg.ReplyMarkup = numericKeyboard
-				b.BotAPI.Send(msg)
+				if _, err := b.BotAPI.Send(msg); err != nil {
+					log.Printf("Start-%s", err)
+					return
+				}
 			} else {
 
 				var sessionId string
@@ -170,7 +183,10 @@ func (b *Bot) Start() {
 					msg := tgbotapi.NewMessage(userId, "Для входа в систему введите ваш логин и пароль в следующем формате:\n *\"логин\":\"пароль\"*")
 					msg.ReplyMarkup = numericKeyboard
 					msg.ParseMode = tgbotapi.ModeMarkdown
-					b.BotAPI.Send(msg)
+					if _, err := b.BotAPI.Send(msg); err != nil {
+						log.Printf("Start-%s", err)
+						return
+					}
 					continue
 				}
 			}
@@ -179,7 +195,10 @@ func (b *Bot) Start() {
 
 				msg := tgbotapi.NewMessage(userId, "Пожалуйста, подождите.")
 				msg.ReplyMarkup = numericKeyboard
-				b.BotAPI.Send(msg)
+				if _, err := b.BotAPI.Send(msg); err != nil {
+					log.Printf("Start-%s", err)
+					return
+				}
 
 				b.Command(userId, update.Message)
 			}
@@ -188,7 +207,10 @@ func (b *Bot) Start() {
 
 			msg := tgbotapi.NewMessage(userId, "Пожалуйста, подождите.")
 			msg.ReplyMarkup = numericKeyboard
-			b.BotAPI.Send(msg)
+			if _, err := b.BotAPI.Send(msg); err != nil {
+				log.Printf("Start-%s", err)
+				return
+			}
 
 			b.CallbackQuery(userId, update.CallbackQuery)
 		}

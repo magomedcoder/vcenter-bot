@@ -1,0 +1,11 @@
+[Unit]
+Description=vCenter bot
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+ExecStart=/usr/bin/vcenter-bot
+
+[Install]
+WantedBy=multi-user.target
